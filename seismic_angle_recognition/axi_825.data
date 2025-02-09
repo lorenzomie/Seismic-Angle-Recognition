@@ -1,0 +1,5 @@
+&input
+nfreq=50,aw=2.,tl=50.0,xl=213730.00000000003,ikmax=100000,latlon=.true.,freesurface=.true.,sourcefile="axi_825.source",statfile="axi_825.stat"
+//
+1000.000 5000.000 2886.000 2700.000 1000.000 500.000
+0.000 6000.000 3886.000 2700.000 1000.000 500.000
