@@ -1,0 +1,23 @@
+defaults:
+  - _self_
+
+data_preparation:
+  center_lat: 45.0
+  center_lon: 2.0
+  center_depth: 1000.0
+  distance: 1000.0
+  distance_perc: 0.05
+  N: 10
+  axitra_path: "/home/EU/chmielel/ws/src/signals/Seismic-Angle-Recognition/seismic_angle_recognition/src"
+  figures_path: "reports/figures"
+  noise_level: 0.02
+
+vae_model:
+  input_dim: 3
+  hidden_dim: 128
+  latent_dim: 32
+  learning_rate: 0.001
+  batch_size: 64
+  num_epochs: 10
+  num_samples: 1000
+  seq_length: 10

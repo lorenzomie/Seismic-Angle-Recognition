@@ -1,14 +1,16 @@
 import sys
-sys.path.append(".") 
+sys.path.append("/home/EU/chmielel/ws/src/signals/Seismic-Angle-Recognition/seismic_angle_recognition/src") 
 
-import os
+from pathlib import Path
 import numpy as np
-from typing import List
+from typing import List, Tuple
 from axitra import Axitra, moment
 import convmPy
 import matplotlib.pyplot as plt
+import hydra
+from omegaconf import DictConfig
 
-def create_sources(center_lat: float, center_lon: float, center_depth: float, distance: float, N: int) -> List[np.ndarray]:
+def create_sources(center_lat: float, center_lon: float, center_depth: float, distance: float, distance_perc: float, N: int) -> Tuple[np.ndarray, List[float], List[float]]:
     """
     Create N sources equidistant from a central point, distributed along a circle.
     
@@ -21,20 +23,27 @@ def create_sources(center_lat: float, center_lon: float, center_depth: float, di
     
     Returns:
     - A list of N sources, each represented as a numpy array [index, lat, lon, depth]
+    - A list of angles for each source
+    - A list of distances from the center for each source
     """
     # 1 degree of latitude is approximately 111,320 meters
     lat_degree_to_meters = 111320
     lon_degree_to_meters = 111320  # Approximate for small areas (it changes based on latitude)
     
-    # Calculate the change in lat/lon based on the distance
-    delta_lat = distance / lat_degree_to_meters
-    delta_lon = distance / lon_degree_to_meters
-    
     # Generate N sources equidistant from the center
     sources = []
+    angles = []
+    distances = []
     for i in range(N):
         # Calculate the angle for each source (equally spaced around a circle)
         angle = 2 * np.pi * i / N  # Angle in radians
+        
+        # Vary the distance for each source
+        varied_distance = distance * (1 + distance_perc * np.random.randn())
+        
+        # Calculate the change in lat/lon based on the varied distance
+        delta_lat = varied_distance / lat_degree_to_meters
+        delta_lon = varied_distance / lon_degree_to_meters
         
         # Calculate the offsets in latitude and longitude based on the angle
         offset_lat = delta_lat * np.cos(angle)
@@ -42,9 +51,11 @@ def create_sources(center_lat: float, center_lon: float, center_depth: float, di
         
         # Create the source as a numpy array: [index, lat, lon, depth]
         source = np.array([i + 1, center_lat + offset_lat, center_lon + offset_lon, center_depth])
+        angles.append(angle / np.pi * 180)
+        distances.append(varied_distance)
         sources.append(source)
     
-    return np.array(sources)
+    return np.array(sources), angles, distances
 
 def create_station(index: int, lat: float, lon: float, depth: float) -> np.ndarray:
     """
@@ -69,29 +80,64 @@ def create_velocity_model() -> np.ndarray:
 def create_history()-> np.ndarray:
     return np.array([[1, 7.5e20, 148.0, 84.0, -47.0, 0., 0., 10.0]])
 
-def main():
-    center_lat = 45.0 
-    center_lon = 2.0  
-    center_depth = 1000.0 
-    distance = 1000.0
-    N = 10
-    axitra_path = ""
+def remove_temp_files(directory: Path):
+    """
+    Remove all .stat, .hist, .res, .source, and .data files in the given directory.
     
-    sources = create_sources(center_lat, center_lon, center_depth, distance, N)
-    station = create_station(1, center_lat, center_lon, center_depth+100)
+    Parameters:
+    - directory: Path to the directory where the files should be removed
+    """
+    for ext in ['*.stat', '*.hist', '*.res', '*.source', '*.data']:
+        for file in directory.glob(ext):
+            try:
+                file.unlink()
+                print(f"Removed file: {file}")
+            except Exception as e:
+                print(f"Error removing file {file}: {e}")
+
+@hydra.main(config_path=".", config_name="config")
+def main(cfg: DictConfig):
+    center_lat = cfg.center_lat
+    center_lon = cfg.center_lon
+    center_depth = cfg.center_depth
+    distance = cfg.distance
+    distance_perc = cfg.distance_perc
+    N = cfg.N
+    
+    axitra_path = cfg.axitra_path
+    figures_path = Path(cfg.figures_path)
+    sources, angles, distances = create_sources(center_lat, center_lon, center_depth, distance, distance_perc, N)
+    station = create_station(1, center_lat, center_lon, center_depth + 100)
     std_hist = create_history()
     vel_model = create_velocity_model()
-    
+    noise_level = cfg.noise_level
+
+    all_signals = []
     # Print the sources
-    for source in sources:
-        print(station)
-        ap = Axitra(vel_model, station, sources, fmax=1.0, duration=50., xl=0., latlon=True, axpath=axitra_path)
+    for source, angle, distance in zip(sources, angles, distances):
+        source = np.reshape(source, (-1, 1)).T
+        print(source)
+        ap = Axitra(vel_model, station, source, fmax=1.0, duration=50., xl=0., latlon=True, axpath=axitra_path)
         green_fn = moment.green(ap)
-        t, sx, sy, sz = moment.conv(ap,std_hist,source_type=1,t0=2,unit=1) # 1 should be Ricker
-        plt.figure(figsize=(18, 9))
-        ier=plt.plot(t,sx[1,:],t,sx[2,:],t,sx[3,:],t,sx[4,:],t,sx[0,:],)
+        t, sx, sy, sz = moment.conv(ap, std_hist, source_type=1, t0=2, unit=1)  # 1 should be Ricker
+        sx += noise_level * np.random.randn(len(sx)) * sx
+        sy += noise_level * np.random.randn(len(sy)) * sy
+        sz += noise_level * np.random.randn(len(sz)) * sz
+        signals = np.stack((sx, sy, sz), axis=-1)
         
+        # Crea un dizionario per ogni segnale con angolo e distanza
+        signal_data = {
+            'signals': signals,
+            'angle': angle,
+            'distance': distance
+        }
+        all_signals.append(signal_data)
         
+    # Salva tutti i segnali in un file .npy
+    np.save('all_signals.npy', all_signals)
+
+    temp_files_directory = Path("/home/EU/chmielel/ws/src/signals/Seismic-Angle-Recognition/")
+    remove_temp_files(temp_files_directory)
 
 if __name__ == "__main__":
     main()
