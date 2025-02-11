@@ -7,7 +7,7 @@ data_preparation:
   center_depth: 1000.0
   distance: 1000.0
   distance_perc: 0.05
-  N: 10
+  N: 1000
   axitra_path: "/home/EU/chmielel/ws/src/signals/Seismic-Angle-Recognition/seismic_angle_recognition/src"
   figures_path: "reports/figures"
   noise_level: 0.02
@@ -22,8 +22,7 @@ vae_model:
   decoder_layers: [64, 128]
   learning_rate: 0.001
   batch_size: 64
-  num_epochs: 10  # Number of epochs for training 
-  seq_length: 10
+  num_epochs: 1000  # Number of epochs for training 
   patience: 3  # Number of epochs with no improvement after which training will be stopped 
   early_stopping_delta: 0.001  # Minimum change to qualify as an improvement  
   train_split: 0.7  # Percentage of data for training 

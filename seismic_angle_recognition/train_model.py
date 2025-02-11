@@ -90,7 +90,6 @@ class VAEModel(pl.LightningModule):
 class SeismicDataModule(pl.LightningDataModule):
     def __init__(self, cfg: DictConfig):
         super().__init__()
-        self.seq_length = cfg.seq_length
         self.input_dim = cfg.input_dim
         self.batch_size = cfg.batch_size
         self.train_split = cfg.train_split
@@ -99,7 +98,7 @@ class SeismicDataModule(pl.LightningDataModule):
         self.data_filename = cfg.data_filename
         self.scaler = StandardScaler()
 
-    def prepare_data(self):
+    def preprocess_data(self):
         # Load data from file
         data = np.load(Path(self.data_path) / self.data_filename, allow_pickle=True)
         x = np.concatenate([d['signals'] for d in data])
@@ -112,7 +111,7 @@ class SeismicDataModule(pl.LightningDataModule):
 
     def setup(self, stage=None):
         # Split dataset into train, val, test
-        self.prepare_data()
+        self.preprocess_data()
         train_size = int(self.train_split * len(self.dataset))
         val_size = int(self.val_split * len(self.dataset))
         test_size = len(self.dataset) - train_size - val_size
