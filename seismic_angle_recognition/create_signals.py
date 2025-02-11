@@ -95,8 +95,11 @@ def remove_temp_files(directory: Path):
             except Exception as e:
                 print(f"Error removing file {file}: {e}")
 
-@hydra.main(config_path=".", config_name="config")
+@hydra.main(config_path="./config/", config_name="config.yaml")
 def main(cfg: DictConfig):
+
+    cfg = cfg.data_preparation
+
     center_lat = cfg.center_lat
     center_lon = cfg.center_lon
     center_depth = cfg.center_depth
@@ -125,7 +128,6 @@ def main(cfg: DictConfig):
         sz += noise_level * np.random.randn(len(sz)) * sz
         signals = np.stack((sx, sy, sz), axis=-1)
         
-        # Crea un dizionario per ogni segnale con angolo e distanza
         signal_data = {
             'signals': signals,
             'angle': angle,
@@ -134,9 +136,9 @@ def main(cfg: DictConfig):
         all_signals.append(signal_data)
         
     # Salva tutti i segnali in un file .npy
-    np.save('all_signals.npy', all_signals)
+    np.save(Path(cfg.output_data_path) / Path(cfg.output_file), all_signals)
 
-    temp_files_directory = Path("/home/EU/chmielel/ws/src/signals/Seismic-Angle-Recognition/")
+    temp_files_directory = Path(cfg.temp_files_directory)
     remove_temp_files(temp_files_directory)
 
 if __name__ == "__main__":

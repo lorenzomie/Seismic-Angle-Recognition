@@ -11,13 +11,23 @@ data_preparation:
   axitra_path: "/home/EU/chmielel/ws/src/signals/Seismic-Angle-Recognition/seismic_angle_recognition/src"
   figures_path: "reports/figures"
   noise_level: 0.02
+  output_file: "all_signals.npy"
+  output_path: "/home/EU/chmielel/ws/src/signals/Seismic-Angle-Recognition/data/signals_2d"
+  temp_files_directory: "/home/EU/chmielel/ws/src/signals/Seismic-Angle-Recognition/"
 
 vae_model:
   input_dim: 3
-  hidden_dim: 128
+  encoder_layers: [128, 64]
   latent_dim: 32
+  decoder_layers: [64, 128]
   learning_rate: 0.001
   batch_size: 64
-  num_epochs: 10
-  num_samples: 1000
+  num_epochs: 10  # Number of epochs for training 
   seq_length: 10
+  patience: 3  # Number of epochs with no improvement after which training will be stopped 
+  early_stopping_delta: 0.001  # Minimum change to qualify as an improvement  
+  train_split: 0.7  # Percentage of data for training 
+  val_split: 0.2  # Percentage of data for validation
+  data_path: "/home/EU/chmielel/ws/src/signals/Seismic-Angle-Recognition/data/signals_2d/"
+  data_filename: "all_signals.npy"
+  kl_loss_weight: 0.1  # Weight for the KL loss
