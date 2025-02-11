@@ -105,6 +105,8 @@ def main(cfg: DictConfig):
     center_depth = cfg.center_depth
     distance = cfg.distance
     distance_perc = cfg.distance_perc
+    duration = cfg.duration
+    f_max = cfg.f_max
     N = cfg.N
     
     axitra_path = cfg.axitra_path
@@ -119,10 +121,10 @@ def main(cfg: DictConfig):
     # Print the sources
     for source, angle, distance in zip(sources, angles, distances):
         source = np.reshape(source, (-1, 1)).T
-        print(source)
-        ap = Axitra(vel_model, station, source, fmax=1.0, duration=50., xl=0., latlon=True, axpath=axitra_path)
+        ap = Axitra(vel_model, station, source, fmax=f_max, duration=duration, xl=0., latlon=True, axpath=axitra_path)
         green_fn = moment.green(ap)
         t, sx, sy, sz = moment.conv(ap, std_hist, source_type=1, t0=2, unit=1)  # 1 should be Ricker
+        print(len(t))
         sx += noise_level * np.random.randn(len(sx)) * sx
         sy += noise_level * np.random.randn(len(sy)) * sy
         sz += noise_level * np.random.randn(len(sz)) * sz

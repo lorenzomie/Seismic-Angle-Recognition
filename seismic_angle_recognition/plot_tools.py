@@ -12,11 +12,11 @@ def plot_latent_space(model: pl.LightningModule, dataloader: DataLoader, num_bat
         for i, (x, y) in enumerate(dataloader):
             if i >= num_batches:
                 break
-            x = x.view(x.size(0), -1)  # Flatten the input if necessary
             mean, logvar = model.vae.encode(x)
             z = model.vae.reparameterize(mean, logvar)
             latents.append(z)
             labels.append(y)
+
 
     latents = torch.cat(latents).cpu().numpy()
     labels = torch.cat(labels).cpu().numpy()
