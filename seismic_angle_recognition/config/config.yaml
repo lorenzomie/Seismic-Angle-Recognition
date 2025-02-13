@@ -45,6 +45,7 @@ vae_model:
   best_model_path: "/home/EU/chmielel/ws/src/signals/Seismic-Angle-Recognition/mlartifacts/0/f02f4c4245a44c32b91274dbfcc4c7db/artifacts/restored_model_checkpoint/epoch=646-step=88639.ckpt"
 
 mapping_model:
+  train_bool: True
   num_epochs: 100
   batch_size: 1024
   patience: 2
@@ -57,3 +58,4 @@ mapping_model:
   margin: 0.1  # Margin for contrastive loss
   threshold: 2  # Threshold for contrastive loss
   contrastive_weight: 100 # Weight for contrastive loss
+  best_model_path: "/home/EU/chmielel/ws/src/signals/Seismic-Angle-Recognition/models/mapper.ckpt"

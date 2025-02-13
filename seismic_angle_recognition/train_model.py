@@ -446,6 +446,7 @@ class EmbeddingToLabelModel(pl.LightningModule):
     def evaluate_performance(self, dataloader: DataLoader):
         """Evaluate the model performance."""
         self.eval()
+        diff_list = []
         with torch.no_grad():
             for batch in dataloader:
                 x, y = batch
@@ -453,6 +454,10 @@ class EmbeddingToLabelModel(pl.LightningModule):
                 for i in range(min(5, len(y))):  # Print first 5 examples
                     print(f"Input: {x[i]}")
                     print(f"Predicted: {y_hat[i].item()}, Actual: {y[i].item()}")
+                    diff = y_hat[i].item() - y[i].item()
+                    diff_list.append(diff)
+        
+        print(f"Mean of error: {np.mean(diff_list)}")
 
 @hydra.main(config_path="config", config_name="config.yaml")
 def main(cfg: DictConfig):
@@ -490,18 +495,22 @@ def main(cfg: DictConfig):
     # Data Module for Embedding to Label Model
     data_module_embedding = SeismicDataModule(cfg.vae_model, after_vae=True, vae_model=vae_model)
 
-    # Embedding to Label Model
-    mapping_model = EmbeddingToLabelModel(cfg.mapping_model)
-    trainer_mapping = Trainer(
-        max_epochs=cfg.mapping_model.num_epochs,
-        logger=mlflow_logger,
-        callbacks=[EarlyStopping(monitor="val_mapping_loss", patience=cfg.mapping_model.patience, min_delta=cfg.mapping_model.early_stopping_delta)]
-    )
-    trainer_mapping.fit(mapping_model, data_module_embedding)
-    trainer_mapping.test(mapping_model, data_module_embedding)
+    if cfg.mapping_model.train_bool:
+        # Embedding to Label Model
+        mapping_model = EmbeddingToLabelModel(cfg.mapping_model)
+        trainer_mapping = Trainer(
+            max_epochs=cfg.mapping_model.num_epochs,
+            logger=mlflow_logger,
+            callbacks=[EarlyStopping(monitor="val_mapping_loss", patience=cfg.mapping_model.patience, min_delta=cfg.mapping_model.early_stopping_delta)]
+        )
+        trainer_mapping.fit(mapping_model, data_module_embedding)
+        trainer_mapping.test(mapping_model, data_module_embedding)
 
-    # Evaluate performance
-    mapping_model.evaluate_performance(data_module_embedding.test_dataloader())
+        # Evaluate performance
+        mapping_model.evaluate_performance(data_module_embedding.test_dataloader())
+    else:
+        # Load the best model if not training
+        mapping_model = EmbeddingToLabelModel.load_from_checkpoint(cfg.mapping_model.best_model_path, cfg=cfg.mapping_model)
     
 
 if __name__ == "__main__":

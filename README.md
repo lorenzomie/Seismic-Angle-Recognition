@@ -69,6 +69,10 @@ Some metrics are available here
 
 ![Validation Loss](reports/figures/train_vs_contrastive.PNG)
 
+The mean of test dataset is:
+
+Mean of error: 1.5931577610969543 [deg]
+
 ## Conclusion
 
 This project presents a novel and effective approach to seismic signal analysis using deep learning techniques. The combination of VAE, triplet loss, and contrastive loss provides a powerful framework for predicting the arrival angle of seismic signals. Future work can explore the extension of this approach to 3D angle reconstruction.
