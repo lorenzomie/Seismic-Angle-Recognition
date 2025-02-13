@@ -177,6 +177,6 @@ cython_debug/
 .mod
 
 # Mlflow and Hydra
-mlruns/
-mlartifacts/
-outputs/
+/mlruns/
+/mlartifacts/
+/outputs/

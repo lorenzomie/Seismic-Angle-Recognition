@@ -100,7 +100,6 @@ class VAEModel(pl.LightningModule):
 
     def get_triplets(self, embeddings: torch.Tensor, labels: torch.Tensor, similarity_distance: float) -> tuple:
         # SIMPLE BOTTLENECK IMPLEMENTATION
-        
         # anchor, positive, negative = [], [], []
         # for i in range(len(labels)):
         #     for j in range(len(labels)):
@@ -202,10 +201,12 @@ class SeismicDataModule(pl.LightningDataModule):
         # Scale the data
         x = self.scaler.fit_transform(x.reshape(-1, x.shape[-1])).reshape(x.shape)
         if self.after_vae:
-            x, _ = self.vae_model.vae.encode(torch.tensor(x, dtype=torch.float32)).detach().numpy()
-        
-        # Convert to tensor and permute (len, seq_len, channels) -> (len, channels, seq_len)
-        x_tensor = torch.tensor(x, dtype=torch.float32).permute(0, 2, 1)
+            self.vae_model.eval()
+            with torch.no_grad():
+                x_tensor, _ = self.vae_model.vae.encode(torch.tensor(x, dtype=torch.float32).permute(0, 2, 1))
+        else:
+            # Convert to tensor and permute (len, seq_len, channels) -> (len, channels, seq_len)
+            x_tensor = torch.tensor(x, dtype=torch.float32).permute(0, 2, 1)
         y_tensor = torch.tensor(y, dtype=torch.float32)
         self.dataset = TensorDataset(x_tensor, y_tensor)
 
@@ -230,15 +231,15 @@ class EmbeddingToLabelModel(pl.LightningModule):
     def __init__(self, cfg: DictConfig):
         super(EmbeddingToLabelModel, self).__init__()
         self.learning_rate: float = cfg.learning_rate
-        self.input_dim: int = cfg.input_dim
         self.layers: list = cfg.layers
+        input_dim: int = cfg.input_dim
 
         layers = []
         for h_dim in self.layers:
-            layers.append(nn.Linear(self.input_dim, h_dim))
+            layers.append(nn.Linear(input_dim, h_dim))
             layers.append(nn.SiLU())
-            in_dim = h_dim
-        layers.append(nn.Linear(in_dim, 1))
+            input_dim = h_dim
+        layers.append(nn.Linear(input_dim, 1))
         self.network = nn.Sequential(*layers)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -270,6 +271,16 @@ class EmbeddingToLabelModel(pl.LightningModule):
     def configure_optimizers(self) -> torch.optim.Optimizer:
         return torch.optim.Adam(self.parameters(), lr=self.learning_rate)
 
+    def evaluate_performance(self, dataloader: DataLoader):
+        self.eval()
+        with torch.no_grad():
+            for batch in dataloader:
+                x, y = batch
+                y_hat = self(x)
+                for i in range(min(5, len(y))):  # Print first 5 examples
+                    print(f"Input: {x[i]}")
+                    print(f"Predicted: {y_hat[i].item()}, Actual: {y[i].item()}")
+
 @hydra.main(config_path="config", config_name="config.yaml")
 def main(cfg: DictConfig):
     mlflow.pytorch.autolog()
@@ -277,11 +288,12 @@ def main(cfg: DictConfig):
     # Should get the hydra runtime directory
     mlflow_uri = f"file:{Path(os.getcwd()).parent.parent.parent}/mlruns/"
     print(f"MLFlow URI: {mlflow_uri}")
-    # Data Module
-    data_module = SeismicDataModule(cfg.vae_model)
+
+    # Data Module for VAE
+    data_module_vae = SeismicDataModule(cfg.vae_model)
 
     # Model
-    model = VAEModel(cfg.vae_model)
+    vae_model = VAEModel(cfg.vae_model)
 
     mlflow_logger = MLFlowLogger(experiment_name="my_experiment", tracking_uri=mlflow_uri)
 
@@ -291,19 +303,27 @@ def main(cfg: DictConfig):
         logger=mlflow_logger,
         callbacks=[EarlyStopping(monitor="val_loss", patience=cfg.vae_model.patience, min_delta=cfg.vae_model.early_stopping_delta)]
     )
-    trainer_vae.fit(model, data_module)
-    trainer_vae.test(model, data_module)
+    trainer_vae.fit(vae_model, data_module_vae)
+    trainer_vae.test(vae_model, data_module_vae)
 
     # Plot latent space
-    plot_latent_space(model, data_module.val_dataloader(), cfg.vae_model.figures_dir, "latent_space.png")
+    plot_latent_space(vae_model, data_module_vae.val_dataloader(), cfg.vae_model.figures_dir, "latent_space.png")
 
-    # Train embedding to label model
-    embedding_model = EmbeddingToLabelModel(cfg.embedding_model)
-    trainer_embedding = Trainer(
-        max_epochs=cfg.embedding_model.num_epochs,
+    # Data Module for Embedding to Label Model
+    data_module_embedding = SeismicDataModule(cfg.vae_model, after_vae=True, vae_model=vae_model)
+
+    # Embedding to Label Model
+    mapping_model = EmbeddingToLabelModel(cfg.mapping_model)
+    trainer_mapping = Trainer(
+        max_epochs=cfg.mapping_model.num_epochs,
         logger=mlflow_logger,
-        callbacks=[EarlyStopping(monitor="val_mapping_loss", patience=cfg.embedding_model.patience, min_delta=cfg.embedding_model.early_stopping_delta)]
+        callbacks=[EarlyStopping(monitor="val_mapping_loss", patience=cfg.mapping_model.patience, min_delta=cfg.mapping_model.early_stopping_delta)]
     )
+    trainer_mapping.fit(mapping_model, data_module_embedding)
+    trainer_mapping.test(mapping_model, data_module_embedding)
+
+    # Evaluate performance
+    mapping_model.evaluate_performance(data_module_embedding.test_dataloader())
 
 
 if __name__ == "__main__":
