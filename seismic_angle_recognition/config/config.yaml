@@ -18,6 +18,7 @@ data_preparation:
   temp_files_directory: "/home/EU/chmielel/ws/src/signals/Seismic-Angle-Recognition/"
 
 vae_model:
+  train_bool: False
   input_channels: 3  # Assuming 3 dimensions: x,y,z
   input_length: 128 # May vary depending on duration and f_max
   encoder_layers: [16, 32, 64]
@@ -41,6 +42,7 @@ vae_model:
   triplet_margin: 1.0  # Margin for the triplet loss
   triplet_loss_weight: 5000.0  # Weight for the triplet loss
   similarity_distance: 10  # Distance for similarity in triplet loss/ Angle
+  best_model_path: "/home/EU/chmielel/ws/src/signals/Seismic-Angle-Recognition/mlartifacts/0/f02f4c4245a44c32b91274dbfcc4c7db/artifacts/restored_model_checkpoint/epoch=646-step=88639.ckpt"
 
 mapping_model:
   num_epochs: 100
@@ -49,8 +51,9 @@ mapping_model:
   early_stopping_delta: 0.001
   input_dim: 2 # Latent space
   output_dim: 1 # Angle
-  learning_rate: 0.001
-  layers: [128, 128, 32]
-  dropout_rate: 0.2
-  margin: 1.0  # Margin for contrastive loss
-  threshold: 0.1  # Threshold for contrastive loss
+  learning_rate: 0.0001
+  layers: [2048, 1024, 512, 512, 128, 32]
+  dropout_rate: 0.1
+  margin: 0.1  # Margin for contrastive loss
+  threshold: 2  # Threshold for contrastive loss
+  contrastive_weight: 100 # Weight for contrastive loss

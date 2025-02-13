@@ -96,6 +96,8 @@ class VAE(nn.Module):
         """
         Encode the input tensor into mean and log variance.
         """
+        if next(self.parameters()).device != x.device:
+            x = x.to(next(self.parameters()).device)
         h = self.encoder(x)
         mean, logvar = torch.chunk(h, 2, dim=-1)
         return mean, logvar
@@ -156,12 +158,6 @@ class VAEModel(pl.LightningModule):
     def forward(self, x: torch.Tensor) -> tuple:
         """
         Forward pass through the VAE model.
-
-        Args:
-            x (torch.Tensor): Input tensor.
-
-        Returns:
-            tuple: Output tensor, mean, and log variance.
         """
         return self.vae(x)
 
@@ -344,8 +340,10 @@ class EmbeddingToLabelModel(pl.LightningModule):
         input_dim: int = cfg.input_dim
         self.margin: float = cfg.margin
         self.threshold: float = cfg.threshold
+        self.contrastive_weight: float = cfg.contrastive_weight
 
         layers = []
+        layers.append(nn.BatchNorm1d(input_dim))
         for h_dim in self.layers:
             layers.append(nn.Linear(input_dim, h_dim))
             layers.append(nn.SiLU())
@@ -356,6 +354,8 @@ class EmbeddingToLabelModel(pl.LightningModule):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through the model."""
+        if next(self.parameters()).device != x.device:
+            x = x.to(next(self.parameters()).device)
         return self.network(x)
 
     def contrastive_loss(self, y_hat: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
@@ -412,9 +412,11 @@ class EmbeddingToLabelModel(pl.LightningModule):
         """
         x, y = batch
         y_hat = self(x)
+        y_hat = y_hat.squeeze()
+
         mapping_loss = nn.functional.mse_loss(y_hat, y)
         contrastive_loss = self.contrastive_loss(y_hat, y)
-        total_loss = mapping_loss + contrastive_loss
+        total_loss = mapping_loss + self.contrastive_weight * contrastive_loss
         
         values = {
             f"{stage}_mapping_loss": mapping_loss,
@@ -463,22 +465,27 @@ def main(cfg: DictConfig):
     # Data Module for VAE
     data_module_vae = SeismicDataModule(cfg.vae_model)
 
-    # Model
-    vae_model = VAEModel(cfg.vae_model)
 
     mlflow_logger = MLFlowLogger(experiment_name="my_experiment", tracking_uri=mlflow_uri)
 
-    # Training
-    trainer_vae = Trainer(
-        max_epochs=cfg.vae_model.num_epochs,
-        logger=mlflow_logger,
-        callbacks=[EarlyStopping(monitor="val_loss", patience=cfg.vae_model.patience, min_delta=cfg.vae_model.early_stopping_delta)]
-    )
-    trainer_vae.fit(vae_model, data_module_vae)
-    trainer_vae.test(vae_model, data_module_vae)
+    # Training VAE model if train_bool is True
+    if cfg.vae_model.train_bool:
+        # Model
+        vae_model = VAEModel(cfg.vae_model)
+        trainer_vae = Trainer(
+            max_epochs=cfg.vae_model.num_epochs,
+            logger=mlflow_logger,
+            callbacks=[EarlyStopping(monitor="val_loss", patience=cfg.vae_model.patience, min_delta=cfg.vae_model.early_stopping_delta)]
+        )
+        trainer_vae.fit(vae_model, data_module_vae)
+        trainer_vae.test(vae_model, data_module_vae)
 
-    # Plot latent space
-    plot_latent_space(vae_model, data_module_vae.val_dataloader(), cfg.vae_model.figures_dir, "latent_space.png")
+        # Plot latent space
+        plot_latent_space(vae_model, data_module_vae.val_dataloader(), cfg.vae_model.figures_dir, "latent_space.png")
+    else:
+        # Load the best model if not training
+        # Please use the same config file of that date
+        vae_model = VAEModel.load_from_checkpoint(cfg.vae_model.best_model_path, cfg=cfg.vae_model)
 
     # Data Module for Embedding to Label Model
     data_module_embedding = SeismicDataModule(cfg.vae_model, after_vae=True, vae_model=vae_model)
@@ -495,7 +502,7 @@ def main(cfg: DictConfig):
 
     # Evaluate performance
     mapping_model.evaluate_performance(data_module_embedding.test_dataloader())
-
+    
 
 if __name__ == "__main__":
     main()
