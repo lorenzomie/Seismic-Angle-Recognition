@@ -7,7 +7,7 @@ data_preparation:
   center_depth: 1000.0
   distance: 1000.0
   distance_perc: 0.05
-  N: 20000
+  N: 100000
   duration: 0.5
   f_max: 100.0
   axitra_path: "/home/EU/chmielel/ws/src/signals/Seismic-Angle-Recognition/seismic_angle_recognition/src"
@@ -30,10 +30,20 @@ vae_model:
   learning_rate: 0.001
   batch_size: 64
   num_epochs: 1000  # Number of epochs for training 
-  patience: 3  # Number of epochs with no improvement after which training will be stopped 
-  early_stopping_delta: 0.001  # Minimum change to qualify as an improvement  
+  patience: 20  # Number of epochs with no improvement after which training will be stopped 
+  early_stopping_delta: 0.1  # Minimum change to qualify as an improvement  
   train_split: 0.7  # Percentage of data for training 
   val_split: 0.2  # Percentage of data for validation
   data_path: "/home/EU/chmielel/ws/src/signals/Seismic-Angle-Recognition/data/signals_2d/"
   data_filename: "all_signals.npy"
-  kl_loss_weight: 0.1  # Weight for the KL loss
+  kl_loss_weight: 1  # Weight for the KL loss
+  figures_dir: "/home/EU/chmielel/ws/src/signals/Seismic-Angle-Recognition/reports/figures"
+  triplet_margin: 1.0  # Margin for the triplet loss
+  triplet_loss_weight: 1.0  # Weight for the triplet loss
+  similarity_distance: 10  # Distance for similarity in triplet loss/ Angle
+
+mapping_model:
+  input_dim: 2 # Latent space
+  output_dim: 1 # Angle
+  learning_rate: 0.001
+  layers: [64, 32, 8]

@@ -139,6 +139,7 @@ def main(cfg: DictConfig):
         
     # Salva tutti i segnali in un file .npy
     np.save(Path(cfg.output_data_path) / Path(cfg.output_file), all_signals)
+    print(f"Saved signals to {Path(cfg.output_data_path) / Path(cfg.output_file)}")
 
     temp_files_directory = Path(cfg.temp_files_directory)
     remove_temp_files(temp_files_directory)
