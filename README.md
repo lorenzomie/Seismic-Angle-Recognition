@@ -53,9 +53,21 @@ The proposed approach demonstrates significant improvements in predicting the ar
 
 Here is a ordered latent space of the Variational AutoEncoder.
 
-![alt text](reports/figures/latent_space.png)
+![Latent Space](reports/figures/latent_space.png)
 
-Some metrics are available here.
+Some metrics are available here
+
+### VAE TRAINING
+
+![Training Loss](reports/figures/train_VAE_loss.PNG)
+
+![Validation Loss](reports/figures/val_Loss_VAE.PNG)
+
+### MAPPER TRAINING
+
+![Training Loss](reports/figures/train_val_mapper.PNG)
+
+![Validation Loss](reports/figures/train_vs_contrastive.PNG)
 
 ## Conclusion
 
