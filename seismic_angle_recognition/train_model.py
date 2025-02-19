@@ -298,9 +298,25 @@ class SeismicDataModule(pl.LightningDataModule):
         y_tensor = torch.tensor(y, dtype=torch.float32)
         self.dataset = TensorDataset(x_tensor, y_tensor)
 
+    def preprocess_additional_sources(self):
+        """Preprocess additional sources of data."""
+        additional_sources_path = Path(self.data_path) / "additional_signals.npy"
+        if additional_sources_path.exists():
+            additional_sources = np.load(additional_sources_path, allow_pickle=True)
+            additional_x = np.concatenate([d['signals'] for d in additional_sources])
+            additional_y = np.array([d['angle'] for d in additional_sources])
+            
+            additional_x = self.scaler.transform(additional_x.reshape(-1, additional_x.shape[-1])).reshape(additional_x.shape)
+            additional_x_tensor = torch.tensor(additional_x, dtype=torch.float32).permute(0, 2, 1)
+            additional_y_tensor = torch.tensor(additional_y, dtype=torch.float32)
+            self.additional_dataset = TensorDataset(additional_x_tensor, additional_y_tensor)
+        else:
+            self.additional_dataset = None
+    
     def setup(self, stage: str = None):
         """Setup the dataset splits."""
         self.preprocess_data()
+        self.preprocess_additional_sources()
         train_size = int(self.train_split * len(self.dataset))
         val_size = int(self.val_split * len(self.dataset))
         test_size = len(self.dataset) - train_size - val_size
@@ -318,6 +334,12 @@ class SeismicDataModule(pl.LightningDataModule):
         """Return the test dataloader."""
         return DataLoader(self.test_dataset, batch_size=self.batch_size)
 
+    def additional_dataloader(self) -> DataLoader:
+        """Return the additional dataloader."""
+        if self.additional_dataset is not None:
+            return DataLoader(self.additional_dataset, batch_size=self.batch_size)
+        else:
+            return None
 class EmbeddingToLabelModel(pl.LightningModule):
     """
     Model to map embeddings to labels.
@@ -469,7 +491,7 @@ def main(cfg: DictConfig):
 
     # Data Module for VAE
     data_module_vae = SeismicDataModule(cfg.vae_model)
-
+    additional_sources = np.load(Path(cfg.vae_model.data_path) / Path("additional_signals.npy"), allow_pickle=True)
 
     mlflow_logger = MLFlowLogger(experiment_name="my_experiment", tracking_uri=mlflow_uri)
 
@@ -486,7 +508,8 @@ def main(cfg: DictConfig):
         trainer_vae.test(vae_model, data_module_vae)
 
         # Plot latent space
-        plot_latent_space(vae_model, data_module_vae.val_dataloader(), cfg.vae_model.figures_dir, "latent_space.png")
+        plot_latent_space(vae_model, data_module_vae.val_dataloader(), cfg.vae_model.figures_dir, "latent_space.png", additional_dataloader=data_module_vae.additional_dataloader())
+
     else:
         # Load the best model if not training
         # Please use the same config file of that date

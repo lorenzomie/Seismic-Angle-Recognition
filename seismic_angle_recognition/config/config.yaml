@@ -7,7 +7,7 @@ data_preparation:
   center_depth: 1000.0
   distance: 1000.0
   distance_perc: 0.05
-  N: 100000
+  N: 100
   duration: 0.5
   f_max: 100.0
   axitra_path: "/home/EU/chmielel/ws/src/signals/Seismic-Angle-Recognition/seismic_angle_recognition/src"
@@ -18,7 +18,7 @@ data_preparation:
   temp_files_directory: "/home/EU/chmielel/ws/src/signals/Seismic-Angle-Recognition/"
 
 vae_model:
-  train_bool: False
+  train_bool: True
   input_channels: 3  # Assuming 3 dimensions: x,y,z
   input_length: 128 # May vary depending on duration and f_max
   encoder_layers: [16, 32, 64]

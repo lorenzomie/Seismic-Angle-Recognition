@@ -5,3 +5,11 @@ mkdocs
 pip
 python-dotenv
 -e .
+numpy==1.23.4
+matplotlib==3.5.3
+hydra-core==1.1.1
+omegaconf==2.1.1
+torch==1.10.0
+pytorch-lightning==1.5.10
+mlflow==1.20.2
+scikit-learn==0.24.2

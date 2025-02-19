@@ -95,6 +95,27 @@ def remove_temp_files(directory: Path):
             except Exception as e:
                 print(f"Error removing file {file}: {e}")
 
+def process_sources(sources, angles, distances, vel_model, station, std_hist, f_max, duration, axitra_path, noise_level):
+    all_signals = []
+    for source, angle, distance in zip(sources, angles, distances):
+        source = np.reshape(source, (-1, 1)).T
+        ap = Axitra(vel_model, station, source, fmax=f_max, duration=duration, xl=0., latlon=True, axpath=axitra_path)
+        green_fn = moment.green(ap)
+        t, sx, sy, sz = moment.conv(ap, std_hist, source_type=1, t0=2, unit=1)  # 1 should be Ricker
+        print(len(t))
+        sx += noise_level * np.random.randn(len(sx)) * sx
+        sy += noise_level * np.random.randn(len(sy)) * sy
+        sz += noise_level * np.random.randn(len(sz)) * sz
+        signals = np.stack((sx, sy, sz), axis=-1)
+        
+        signal_data = {
+            'signals': signals,
+            'angle': angle,
+            'distance': distance
+        }
+        all_signals.append(signal_data)
+    return all_signals
+
 @hydra.main(config_path="./config/", config_name="config.yaml")
 def main(cfg: DictConfig):
 
@@ -117,29 +138,17 @@ def main(cfg: DictConfig):
     vel_model = create_velocity_model()
     noise_level = cfg.noise_level
 
-    all_signals = []
-    # Print the sources
-    for source, angle, distance in zip(sources, angles, distances):
-        source = np.reshape(source, (-1, 1)).T
-        ap = Axitra(vel_model, station, source, fmax=f_max, duration=duration, xl=0., latlon=True, axpath=axitra_path)
-        green_fn = moment.green(ap)
-        t, sx, sy, sz = moment.conv(ap, std_hist, source_type=1, t0=2, unit=1)  # 1 should be Ricker
-        print(len(t))
-        sx += noise_level * np.random.randn(len(sx)) * sx
-        sy += noise_level * np.random.randn(len(sy)) * sy
-        sz += noise_level * np.random.randn(len(sz)) * sz
-        signals = np.stack((sx, sy, sz), axis=-1)
-        
-        signal_data = {
-            'signals': signals,
-            'angle': angle,
-            'distance': distance
-        }
-        all_signals.append(signal_data)
-        
-    # Salva tutti i segnali in un file .npy
-    np.save(Path(cfg.output_data_path) / Path(cfg.output_file), all_signals)
+    all_signals = process_sources(sources, angles, distances, vel_model, station, std_hist, f_max, duration, axitra_path, noise_level)
+    
+    # Create additional 20 samples of sources with distance_perc=0 and N=20
+    additional_sources, additional_angles, additional_distances = create_sources(center_lat, center_lon, center_depth, distance, 0, 20)
+    additional_signals = process_sources(additional_sources, additional_angles, additional_distances, vel_model, station, std_hist, f_max, duration, axitra_path, noise_level)
+    
+    # np.save(Path(cfg.output_data_path) / Path(cfg.output_file), all_signals)
     print(f"Saved signals to {Path(cfg.output_data_path) / Path(cfg.output_file)}")
+
+    np.save(Path(cfg.output_data_path) / Path("additional_signals.npy"), additional_signals)
+    print(f"Saved additional signals to {Path(cfg.output_data_path) / Path('additional_signals.npy')}")
 
     temp_files_directory = Path(cfg.temp_files_directory)
     remove_temp_files(temp_files_directory)

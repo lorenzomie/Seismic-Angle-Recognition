@@ -71,7 +71,7 @@ Some metrics are available here
 
 The mean of test dataset is:
 
-Mean of error: 1.5931577610969543 [deg]
+Mean of error: 0.15 [deg]
 
 ## Conclusion
 
