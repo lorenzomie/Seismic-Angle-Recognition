@@ -9,7 +9,7 @@ numpy==1.23.4
 matplotlib==3.5.3
 hydra-core==1.1.1
 omegaconf==2.1.1
-torch==1.10.0
-pytorch-lightning==1.5.10
-mlflow==1.20.2
-scikit-learn==0.24.2
+torch==2.1.2
+pytorch-lightning==2.4.0
+mlflow==2.20.1
+scikit-learn==1.0.2
